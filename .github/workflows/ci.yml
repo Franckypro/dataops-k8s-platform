@@ -91,9 +91,10 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
       - name: kind
+        # Téléchargé dans le dossier temporaire : le dépôt contient déjà un dossier « kind/ »
         run: |
-          curl -sSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-          sudo install kind /usr/local/bin/kind
+          curl -sSfLo "$RUNNER_TEMP/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          sudo install "$RUNNER_TEMP/kind" /usr/local/bin/kind
           kind version
       - name: Lancement en une commande
         run: ./scripts/up.sh
