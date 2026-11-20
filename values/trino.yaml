@@ -1,0 +1,59 @@
+# Trino (chart officiel trinodb/charts) : un coordinateur seul, qui exécute aussi les requêtes.
+# La version de Trino suit celle du chart : 1.44.0 -> Trino 483, 1.45.0 -> Trino 484 (voir docs/montee-de-version-trino.md).
+
+server:
+  workers: 0
+  node:
+    environment: dataops_local
+  config:
+    query:
+      maxMemory: "400MB"
+
+coordinator:
+  jvm:
+    maxHeapSize: "1G"
+  config:
+    memory:
+      heapHeadroomPerNode: "200MB"
+    nodeScheduler:
+      includeCoordinator: true # sans worker, le coordinateur exécute les requêtes
+    query:
+      maxMemoryPerNode: "400MB"
+  resources:
+    requests: { cpu: 250m, memory: 1280Mi }
+    limits: { memory: 1792Mi }
+
+# Identifiants S3 (MinIO) injectés depuis un secret créé par scripts/up.sh
+envFrom:
+  - secretRef:
+      name: trino-s3
+
+catalogs:
+  # Tables Apache Iceberg : métadonnées dans le catalogue REST, fichiers Parquet dans MinIO
+  iceberg: |
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://iceberg-rest.lakehouse.svc.cluster.local:8181
+    iceberg.rest-catalog.warehouse=s3://warehouse/
+    iceberg.file-format=PARQUET
+    fs.native-s3.enabled=true
+    s3.endpoint=http://minio.lakehouse.svc.cluster.local:9000
+    s3.region=us-east-1
+    s3.path-style-access=true
+    s3.aws-access-key=${ENV:AWS_ACCESS_KEY_ID}
+    s3.aws-secret-key=${ENV:AWS_SECRET_ACCESS_KEY}
+  # Données de test générées à la volée (benchmark TPC-H), utiles pour les démonstrations
+  tpch: |
+    connector.name=tpch
+    tpch.splits-per-node=2
+  tpcds: null
+
+# Chaque requête terminée est envoyée au collecteur d'usage (charts/trino-usage)
+eventListenerProperties:
+  - event-listener.name=http
+  - http-event-listener.log-completed=true
+  - http-event-listener.connect-ingest-uri=http://trino-usage-exporter.trino.svc.cluster.local:8000/v1/events
+
+service:
+  type: NodePort
+  nodePort: 30088

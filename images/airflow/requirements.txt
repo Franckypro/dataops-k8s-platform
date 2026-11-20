@@ -1,0 +1,4 @@
+# Installées avec le fichier de contraintes officiel d'Airflow 3.2.2 (voir Dockerfile)
+apache-airflow-providers-fab==3.6.4 # gestion des utilisateurs de l'interface (utilisée par le chart)
+apache-airflow-providers-trino==6.6.0
+pyiceberg[pyarrow]==0.12.0

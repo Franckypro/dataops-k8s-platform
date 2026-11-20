@@ -1,0 +1,39 @@
+apiVersion: dataops/v1
+kind: DataProduct
+metadata:
+  name: ftth_departements
+  domain: reseau_fixe
+  title: Couverture FttH et fermeture du cuivre, par département
+  description: >
+    Agrégat par département et par trimestre, calculé par Trino à partir de reseau_fixe.ftth_communes :
+    locaux, locaux raccordables en FttH, taux de couverture et locaux concernés par la fermeture
+    technique du cuivre d'Orange à fin 2026 et à fin 2030.
+  owner:
+    team: domaine-reseau-fixe
+    steward: Franckypro
+  tags: [fibre, ftth, cuivre, agregat]
+spec:
+  table: iceberg.reseau_fixe.ftth_departements
+  producedBy: ingestion_ftth
+  partitioning: [trimestre]
+  schema:
+    - { name: code_departement, type: string, required: true, description: Code officiel géographique du département }
+    - { name: departement, type: string, required: true, description: Nom du département }
+    - { name: nb_zones, type: long, required: true, description: Nombre de communes ou parties de commune }
+    - { name: locaux, type: double, required: true, description: Somme des locaux de référence }
+    - { name: locaux_raccordables_ftth, type: double, required: true, description: Somme des locaux raccordables en FttH }
+    - { name: taux_raccordables_ftth, type: double, description: Part des locaux raccordables en FttH }
+    - { name: fermeture_cuivre_fin_2026, type: double, required: true, description: "Locaux concernés par la fermeture du cuivre d'Orange à fin 2026" }
+    - { name: fermeture_cuivre_fin_2030, type: double, required: true, description: "Locaux concernés par la fermeture du cuivre d'Orange à fin 2030" }
+    - { name: trimestre, type: string, required: true, description: "Trimestre, au format AAAA-Tn" }
+    - { name: date_calcul, type: timestamp, required: true, description: Horodatage UTC du calcul }
+  sla:
+    refresh: quotidienne, juste après reseau_fixe.ftth_communes
+    freshness_max_hours: 30
+  quality:
+    - { type: unique, columns: [code_departement] }
+    - { type: row_count_min, min: 100 }
+    - { type: range, column: taux_raccordables_ftth, min: 0, max: 1.05 }
+  access:
+    classification: public
+    consumers: [tableaux de bord, analystes]

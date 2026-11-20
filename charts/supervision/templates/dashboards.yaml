@@ -1,0 +1,16 @@
+# Chaque fichier de dashboards/ devient une ConfigMap que le sidecar de Grafana charge automatiquement.
+{{- range $chemin, $_ := .Files.Glob "dashboards/*.json" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-{{ base $chemin | trimSuffix ".json" }}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: dataops-platform
+  annotations:
+    grafana_folder: DataOps
+data:
+  {{ base $chemin }}: |-
+{{ $.Files.Get $chemin | indent 4 }}
+{{- end }}

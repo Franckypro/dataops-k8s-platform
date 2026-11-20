@@ -1,0 +1,7 @@
+# Outils de développement et de CI (les dépendances d'exécution sont dans images/*/requirements.txt)
+jsonschema==4.26.0
+prometheus-client==0.26.0
+pytest==9.2.0
+pyyaml==6.0.3
+ruff==0.17.6
+yamllint==1.38.0

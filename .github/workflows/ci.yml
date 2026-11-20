@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  KIND_VERSION: v0.33.0
+  HELM_VERSION: v4.3.2
+
+jobs:
+  qualite:
+    name: Lint, tests et contrats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Outils
+        run: pip install -r requirements-dev.txt
+      - name: Ruff (Python)
+        run: ruff check .
+      - name: ShellCheck (scripts)
+        run: shellcheck -x scripts/*.sh
+      - name: yamllint
+        run: yamllint .
+      - name: Contrats de data products
+        run: python scripts/validate_data_products.py
+      - name: Tests unitaires
+        run: pytest -q tests images/trino-usage-exporter/tests
+
+  helm:
+    name: Charts Helm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: helm lint (charts du dépôt)
+        run: helm lint charts/*
+      - name: helm template (charts officiels avec les valeurs du dépôt)
+        run: |
+          source scripts/lib.sh
+          helm repo add trino https://trinodb.github.io/charts
+          helm repo add apache-airflow https://airflow.apache.org
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add opencost https://opencost.github.io/opencost-helm-chart
+          helm template kps prometheus-community/kube-prometheus-stack --version "$KPS_CHART_VERSION" -f values/kube-prometheus-stack.yaml > /dev/null
+          helm template trino trino/trino --version "$TRINO_CHART_VERSION" -f values/trino.yaml > /dev/null
+          helm template trino trino/trino --version "$TRINO_UPGRADE_CHART_VERSION" -f values/trino.yaml > /dev/null
+          helm template airflow apache-airflow/airflow --version "$AIRFLOW_CHART_VERSION" -f values/airflow.yaml > /dev/null
+          helm template opencost opencost/opencost --version "$OPENCOST_CHART_VERSION" -f values/opencost.yaml > /dev/null
+          for chart in charts/*; do helm template test "$chart" > /dev/null; done
+          echo "Tous les rendus Helm sont valides."
+
+  dags:
+    name: DAG Airflow (dans l'image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Construction de l'image Airflow
+        run: docker build -t dataops/airflow:ci -f images/airflow/Dockerfile .
+      - name: Les DAG se chargent sans erreur dans l'image qui sera déployée
+        run: |
+          docker run --rm -v "$PWD/tests:/opt/airflow/tests:ro" --entrypoint bash dataops/airflow:ci \
+            -c "pip install -q pytest && python -m pytest -q -p no:cacheprovider /opt/airflow/tests/dags"
+
+  deploiement:
+    name: Déploiement complet sur kind
+    needs: [qualite, helm, dags]
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - name: Espace disque (images Trino et Airflow)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: kind
+        run: |
+          curl -sSLo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          sudo install kind /usr/local/bin/kind
+          kind version
+      - name: Lancement en une commande
+        run: ./scripts/up.sh
+      - name: Alertes « DAG en échec » et « requête lente »
+        run: ./scripts/test-alertes.sh
+      - name: Montée de version de Trino (483 -> 484)
+        run: ./scripts/trino-upgrade.sh
+      - name: Retour arrière de Trino (484 -> 483)
+        run: ./scripts/trino-rollback.sh
+      - name: Diagnostic
+        if: failure()
+        run: |
+          kubectl get pods -A -o wide || true
+          kubectl get events -A --sort-by=.lastTimestamp | tail -60 || true
+          for ns in airflow trino lakehouse monitoring opencost; do
+            for pod in $(kubectl -n "$ns" get pods -o name); do
+              echo "::group::$ns $pod"
+              kubectl -n "$ns" logs "$pod" --all-containers --tail=80 || true
+              echo "::endgroup::"
+            done
+          done

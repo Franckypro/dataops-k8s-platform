@@ -1,0 +1,19 @@
+extends: default
+
+# Les gabarits Helm ne sont pas du YAML valide avant rendu : ils sont vérifiés par helm lint et helm template.
+ignore: |
+  charts/*/templates/
+  .venv/
+
+rules:
+  line-length:
+    max: 200
+  document-start: disable
+  truthy:
+    allowed-values: ["true", "false", "on"]
+  comments:
+    min-spaces-from-content: 1
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1

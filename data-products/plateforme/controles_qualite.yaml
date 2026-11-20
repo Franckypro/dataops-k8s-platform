@@ -1,0 +1,37 @@
+apiVersion: dataops/v1
+kind: DataProduct
+metadata:
+  name: controles_qualite
+  domain: plateforme
+  title: Historique des contrôles qualité des data products
+  description: >
+    Une ligne par contrôle exécuté par les DAG : data product contrôlé, partition, type de contrôle,
+    gravité, lignes en échec et statut. Sert à suivre la qualité des données dans le temps.
+  owner:
+    team: equipe-plateforme
+    steward: Franckypro
+  tags: [qualite, observabilite]
+spec:
+  table: iceberg.plateforme.controles_qualite
+  producedBy: ingestion_ftth
+  partitioning: [jour]
+  schema:
+    - { name: date_controle, type: timestamp, required: true, description: Horodatage UTC du contrôle }
+    - { name: jour, type: date, required: true, description: Jour du contrôle (partition) }
+    - { name: data_product, type: string, required: true, description: "Data product contrôlé (domaine.nom)" }
+    - { name: partition_controlee, type: string, description: Partition contrôlée (ex. trimestre = 2026-T2) }
+    - { name: controle, type: string, required: true, description: Nom du contrôle }
+    - { name: gravite, type: string, required: true, description: "error (bloquant) ou warn (avertissement)" }
+    - { name: lignes_controlees, type: long, required: true, description: Lignes contrôlées }
+    - { name: lignes_en_echec, type: long, required: true, description: Lignes qui ne respectent pas le contrôle }
+    - { name: statut, type: string, required: true, description: "OK, AVERTISSEMENT ou ECHEC" }
+    - { name: dag_run_id, type: string, required: true, description: Exécution Airflow à l'origine du contrôle }
+  sla:
+    refresh: à chaque exécution des DAG d'ingestion
+    freshness_max_hours: 30
+  quality:
+    - { type: accepted_values, column: statut, values: [OK, AVERTISSEMENT, ECHEC] }
+    - { type: accepted_values, column: gravite, values: [error, warn] }
+  access:
+    classification: interne
+    consumers: [equipe-plateforme]

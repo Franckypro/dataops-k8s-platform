@@ -1,0 +1,66 @@
+apiVersion: dataops/v1
+kind: DataProduct
+metadata:
+  name: ftth_communes
+  domain: reseau_fixe
+  title: Déploiement de la fibre et fermeture du cuivre, par commune
+  description: >
+    Une ligne par commune (ou partie de commune à double zonage) et par trimestre : locaux de référence,
+    locaux raccordables en FttH, opérateurs d'infrastructure et nombre de locaux concernés par la
+    fermeture technique du réseau cuivre d'Orange, année par année jusqu'à fin 2030.
+    La source ne publie que le dernier trimestre ; la table garde l'historique, un trimestre par partition.
+  owner:
+    team: domaine-reseau-fixe
+    steward: Franckypro
+  tags: [fibre, ftth, cuivre, open-data]
+spec:
+  table: iceberg.reseau_fixe.ftth_communes
+  producedBy: ingestion_ftth
+  source:
+    name: Indicateur France Très Haut Débit, état des déploiements de la fibre optique et décommissionnement du cuivre
+    publisher: ANCT (Agence nationale de la cohésion des territoires)
+    url: https://www.data.gouv.fr/fr/datasets/r/35dc0362-960f-4353-8a9b-0cdcf5a1a270
+    documentation: https://www.data.gouv.fr/fr/datasets/691dba38a5d5e13a5f63418f/
+    licence: Licence Ouverte 2.0 (Etalab), source à citer avec la date de mise à jour
+    frequency: trimestrielle
+  partitioning: [trimestre]
+  schema:
+    - { name: id_zone, type: string, required: true, source: id_fthd, description: "Code officiel de la commune suivi de 0 (commune simple) ou 1 (commune à double zonage)" }
+    - { name: code_insee, type: string, required: true, source: insee_com, description: Code officiel géographique de la commune }
+    - { name: commune, type: string, required: true, source: com_lib, description: Nom de la commune }
+    - { name: code_departement, type: string, required: true, source: insee_dep, description: Code officiel géographique du département }
+    - { name: departement, type: string, required: true, source: dep_lib, description: Nom du département }
+    - { name: superficie_km2, type: double, source: superficie, description: Superficie de la commune ou de la zone infra-communale en km² }
+    - { name: locaux, type: double, required: true, source: locaux_arcep, description: "Locaux de référence de l'observatoire FttH de l'Arcep, hors locaux en construction" }
+    - { name: locaux_raccordables_ftth, type: double, source: locaux_ftth, description: Locaux rendus raccordables en FttH au trimestre indiqué }
+    - { name: taux_raccordables_ftth, type: double, description: "Part des locaux raccordables en FttH (locaux_raccordables_ftth / locaux), vide si locaux = 0" }
+    - { name: porteur_projet, type: string, source: porteur_projet, description: Porteur du projet de déploiement (réseau public ou privé) }
+    - { name: exploitant, type: string, source: exploitant, description: Exploitant du réseau public ou privé }
+    - { name: oi_deploiement, type: string, source: oi_deploiment, description: Opérateur d'infrastructure qui construit le réseau }
+    - { name: oi_exploitant, type: string, source: oi_exploitant, description: Opérateur d'infrastructure qui exploite le réseau }
+    - { name: zonage, type: string, required: true, source: zonage_fthd, description: Détail du zonage appliqué par le plan France Très Haut Débit }
+    - { name: categorie_zonage, type: string, required: true, source: categorie_fthd, description: "Catégorie de zonage : ZTD, AMII, RIP, AMEL ou FP" }
+    - { name: fermeture_cuivre_fin_2025, type: double, source: ferm_cu25, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2025" }
+    - { name: fermeture_cuivre_fin_2026, type: double, source: ferm_cu26, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2026" }
+    - { name: fermeture_cuivre_fin_2027, type: double, source: ferm_cu27, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2027" }
+    - { name: fermeture_cuivre_fin_2028, type: double, source: ferm_cu28, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2028" }
+    - { name: fermeture_cuivre_fin_2029, type: double, source: ferm_cu29, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2029" }
+    - { name: fermeture_cuivre_fin_2030, type: double, source: ferm_cu30, description: "Locaux concernés par la fermeture technique du réseau cuivre d'Orange à fin 2030" }
+    - { name: id_projet, type: string, source: id_projet, description: Maille de suivi du projet (départementale ou plus large) }
+    - { name: trimestre, type: string, required: true, source: trimestre, description: "Trimestre publié, au format AAAA-Tn (ex. 2026-T2)" }
+    - { name: date_ingestion, type: timestamp, required: true, description: Horodatage UTC du chargement }
+  sla:
+    refresh: quotidienne à 06:00 UTC (la source change chaque trimestre)
+    freshness_max_hours: 30
+  quality:
+    - { type: unique, columns: [id_zone] }
+    - { type: accepted_values, column: categorie_zonage, values: [ZTD, AMII, RIP, AMEL, FP] }
+    - { type: range, column: locaux, min: 0 }
+    - { type: range, column: locaux_raccordables_ftth, min: 0 }
+    - { type: row_count_min, min: 30000 }
+    # La source compte parfois plus de locaux raccordables que de locaux de référence (environ 0,4 % des lignes) :
+    # c'est signalé, sans bloquer, tant que cela reste sous 1 %.
+    - { type: expression, name: raccordables_coherents, condition: "locaux_raccordables_ftth IS NULL OR locaux_raccordables_ftth <= locaux", max_failure_ratio: 0.01, severity: warn }
+  access:
+    classification: public
+    consumers: [reseau_fixe.ftth_departements]

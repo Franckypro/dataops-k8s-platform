@@ -1,0 +1,54 @@
+# Ce que Prometheus doit collecter, et où.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: trino-usage-exporter
+  labels:
+    app.kubernetes.io/part-of: dataops-platform
+spec:
+  namespaceSelector:
+    matchNames: [trino]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: trino-usage-exporter
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: airflow-statsd
+  labels:
+    app.kubernetes.io/part-of: dataops-platform
+spec:
+  namespaceSelector:
+    matchNames: [airflow]
+  selector:
+    matchLabels:
+      component: statsd
+  endpoints:
+    - port: statsd-scrape
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minio
+  labels:
+    app.kubernetes.io/part-of: dataops-platform
+spec:
+  namespaceSelector:
+    matchNames: [lakehouse]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+  endpoints:
+    - port: api
+      path: /minio/v2/metrics/cluster
+      interval: 30s
+    - port: api
+      path: /minio/v2/metrics/bucket
+      interval: 60s

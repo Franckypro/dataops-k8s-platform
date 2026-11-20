@@ -1,0 +1,17 @@
+image:
+  repository: dataops/trino-usage-exporter # construite et chargée dans kind par scripts/up.sh
+  tag: "0.1.0" # remplacée par scripts/up.sh par l'empreinte du code de l'image
+  pullPolicy: IfNotPresent
+
+# Service Trino interrogé pour savoir s'il répond et dans quelle version
+trinoUrl: http://trino.trino.svc.cluster.local:8080
+
+# Au-delà de cette durée, une requête est comptée comme lente (et déclenche l'alerte TrinoRequetesLentes)
+slowQuerySeconds: 10
+
+# true : écrit chaque événement brut dans les journaux (diagnostic)
+logEvents: false
+
+resources:
+  requests: { cpu: 10m, memory: 48Mi }
+  limits: { memory: 128Mi }

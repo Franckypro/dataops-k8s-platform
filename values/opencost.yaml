@@ -1,0 +1,50 @@
+# OpenCost (chart officiel opencost/opencost-helm-chart) : coût des ressources réservées et consommées,
+# ventilé par namespace, pod ou conteneur. Les données viennent du Prometheus de kube-prometheus-stack.
+# (Le champ clusterName du chart est le suffixe DNS du cluster, cluster.local par défaut : on n'y touche pas.)
+
+service:
+  type: NodePort
+  nodePort: 30091 # interface web d'OpenCost
+
+opencost:
+  exporter:
+    defaultClusterId: dataops-local
+    resources:
+      requests: { cpu: 10m, memory: 64Mi }
+      limits: { memory: 384Mi }
+
+  prometheus:
+    internal:
+      enabled: true
+      serviceName: kube-prometheus-stack-prometheus
+      namespaceName: monitoring
+      port: 9090
+
+  # Prometheus collecte aussi les métriques d'OpenCost (coût horaire des nœuds, allocations) :
+  # elles alimentent le tableau Grafana « FinOps : coût par namespace ».
+  metrics:
+    serviceMonitor:
+      enabled: true
+
+  # Cluster local, sans facture de fournisseur cloud : on fixe des tarifs de référence.
+  # Ce sont des tarifs indicatifs pour la démonstration, à remplacer par le coût réel de l'infrastructure.
+  customPricing:
+    enabled: true
+    provider: custom
+    costModel:
+      description: Tarifs indicatifs de démonstration (prix horaires)
+      CPU: 0.04 # par vCPU et par heure
+      spotCPU: 0.012
+      RAM: 0.005 # par Gio et par heure
+      spotRAM: 0.0015
+      GPU: 0.95
+      storage: 0.0001 # par Gio et par heure
+      zoneNetworkEgress: 0.01
+      regionNetworkEgress: 0.01
+      internetNetworkEgress: 0.08
+
+  ui:
+    enabled: true
+    resources:
+      requests: { cpu: 5m, memory: 24Mi }
+      limits: { memory: 96Mi }

@@ -1,0 +1,13 @@
+# Le chart Airflow embarque une base Bitnami dont l'image n'est plus maintenue depuis 2025 :
+# on déploie à la place l'image officielle PostgreSQL.
+image: postgres:17.7-alpine
+database: airflow
+user: airflow
+# Secret créé par scripts/up.sh
+passwordSecret:
+  name: airflow-db
+  key: password
+storageSize: 2Gi
+resources:
+  requests: { cpu: 50m, memory: 96Mi }
+  limits: { memory: 384Mi }

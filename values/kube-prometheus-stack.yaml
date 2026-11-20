@@ -1,0 +1,123 @@
+# kube-prometheus-stack (chart officiel prometheus-community) : Prometheus, Alertmanager, Grafana,
+# kube-state-metrics et node-exporter. Réglages allégés pour un cluster kind sur un poste de travail.
+
+# Le plan de contrôle de kind n'expose pas etcd, le scheduler, le controller-manager ni kube-proxy :
+# on ne les supervise pas, sinon leurs alertes « Down » se déclenchent en permanence.
+kubeEtcd: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeProxy: { enabled: false }
+
+defaultRules:
+  rules:
+    etcd: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeControllerManager: false
+    kubeProxy: false
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    # Prometheus prend en compte tous les ServiceMonitor et PrometheusRule du cluster, quel que soit leur chart.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    retention: 3d
+    retentionSize: 1500MB
+    resources:
+      requests: { cpu: 100m, memory: 300Mi }
+      limits: { memory: 1Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 30093
+  alertmanagerSpec:
+    retention: 24h
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
+grafana:
+  service:
+    type: NodePort
+    nodePort: 30030
+  # Identifiants dans un secret créé par scripts/up.sh (jamais en clair dans le dépôt)
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  # Les ~30 tableaux génériques du chart ne sont pas chargés : Grafana démarre plus vite et consomme moins.
+  # Les tableaux de la plateforme viennent de charts/supervision.
+  defaultDashboardsEnabled: false
+  defaultDashboardsTimezone: Europe/Paris
+  persistence:
+    enabled: false
+  sidecar:
+    resources:
+      requests: { cpu: 5m, memory: 48Mi }
+      limits: { memory: 128Mi }
+    dashboards:
+      # Les tableaux de bord sont des ConfigMap étiquetées grafana_dashboard=1 (voir charts/supervision)
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+    # Sources de données déclarées en statique ci-dessous : un conteneur sidecar de moins
+    datasources:
+      enabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          access: proxy
+          isDefault: true
+          jsonData: { timeInterval: 30s }
+        - name: Alertmanager
+          type: alertmanager
+          uid: alertmanager
+          url: http://kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+          access: proxy
+          jsonData: { implementation: prometheus }
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 512Mi }
+  grafana.ini:
+    analytics:
+      check_for_updates: false
+      reporting_enabled: false
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 20m, memory: 48Mi }
+    limits: { memory: 192Mi }
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 48Mi }
+    limits: { memory: 160Mi }
+
+prometheus-node-exporter:
+  # Sur Docker Desktop, la racine de l'hôte n'est pas montée en mode « shared » : on ne la monte pas.
+  hostRootFsMount:
+    enabled: false
+  resources:
+    requests: { cpu: 10m, memory: 24Mi }
+    limits: { memory: 64Mi }

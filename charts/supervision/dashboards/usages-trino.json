@@ -1,0 +1,123 @@
+{
+  "uid": "dataops-usages-trino",
+  "title": "Usages Trino par utilisateur et par catalogue",
+  "description": "Alimenté par le collecteur trino-usage-exporter (event listener HTTP de Trino).",
+  "tags": ["dataops", "trino", "finops"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requêtes sur la période",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(increase(trino_queries_total[$__range])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "title": "Temps CPU consommé sur la période",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(increase(trino_query_cpu_seconds_total[$__range])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 1 }, "overrides": [] }
+    },
+    {
+      "type": "stat",
+      "title": "Requêtes lentes sur la période",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(increase(trino_slow_queries_total[$__range])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": { "decimals": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.5 }] } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Seuil « requête lente »",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "max(trino_slow_query_threshold_seconds)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "none", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "type": "table",
+      "title": "Cumul par utilisateur et par catalogue (depuis le démarrage du collecteur)",
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (user, catalog) (trino_queries_total)", "format": "table", "instant": true },
+        { "refId": "B", "expr": "sum by (user, catalog) (trino_queries_total{state=\"FAILED\"})", "format": "table", "instant": true },
+        { "refId": "C", "expr": "sum by (user, catalog) (trino_query_cpu_seconds_total)", "format": "table", "instant": true },
+        { "refId": "D", "expr": "sum by (user, catalog) (trino_query_input_bytes_total)", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "user": "Utilisateur",
+              "catalog": "Catalogue(s)",
+              "Value #A": "Requêtes",
+              "Value #B": "Dont en échec",
+              "Value #C": "Temps CPU (s)",
+              "Value #D": "Octets lus"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Octets lus" }, "properties": [{ "id": "unit", "value": "bytes" }] },
+          { "matcher": { "id": "byName", "options": "Temps CPU (s)" }, "properties": [{ "id": "decimals", "value": 2 }] }
+        ]
+      },
+      "options": { "sortBy": [{ "displayName": "Temps CPU (s)", "desc": true }] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requêtes par minute, par utilisateur",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (user) (rate(trino_queries_total[5m])) * 60", "legendFormat": "{{user}}" }],
+      "fieldConfig": { "defaults": { "decimals": 1 }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requêtes par minute, par catalogue",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (catalog) (rate(trino_queries_total[5m])) * 60", "legendFormat": "{{catalog}}" }],
+      "fieldConfig": { "defaults": { "decimals": 1 }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Durée des requêtes, 95e centile par utilisateur",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, user) (rate(trino_query_wall_seconds_bucket[5m])))", "legendFormat": "{{user}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Temps CPU par catalogue (secondes par minute)",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (catalog) (rate(trino_query_cpu_seconds_total[5m])) * 60", "legendFormat": "{{catalog}}" }],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30 } }, "overrides": [] }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# Secret créé par scripts/up.sh (clés root-user et root-password). Il n'est jamais versionné.
+credentialsSecret: minio-credentials
+
+minio:
+  # MinIO ne publie plus d'image officielle depuis fin 2025 (Docker Hub : 404, quay.io : accès authentifié).
+  # Image reconstruite depuis les sources par Chainguard, épinglée par digest pour un déploiement reproductible.
+  image:
+    repository: cgr.dev/chainguard/minio
+    digest: sha256:e9cf6b99c226e9539ed0f14b6f00e37b07da153c7ba1f4f8709c807574b471ec
+  buckets:
+    - warehouse # tables Iceberg (données et métadonnées)
+    - landing # fichiers bruts déposés par les DAG d'ingestion
+  storageSize: 5Gi
+  consoleNodePort: 30901
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+mc:
+  image:
+    repository: cgr.dev/chainguard/minio-client
+    digest: sha256:94433f625c8057d18c69675dbaa33da6e4864f084f9c44faf30d3eb8e3754e0b
+
+icebergRest:
+  # Implémentation de référence du catalogue REST publiée par le projet Apache Iceberg.
+  image:
+    repository: apache/iceberg-rest-fixture
+    tag: "1.10.1"
+  warehouse: s3://warehouse/
+  # Le catalogue (namespaces, tables, pointeurs de métadonnées) est stocké dans un fichier SQLite persistant.
+  storageSize: 1Gi
+  javaOpts: "-Xmx256m"
+  resources:
+    requests: { cpu: 50m, memory: 320Mi }
+    limits: { memory: 512Mi }

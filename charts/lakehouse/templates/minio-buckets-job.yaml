@@ -1,0 +1,51 @@
+# Crée les buckets après chaque installation ou mise à jour (idempotent grâce à --ignore-existing).
+# L'image mc n'a pas de shell : l'alias "lake" est fourni par la variable MC_HOST_lake.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-buckets
+  labels:
+    {{- include "lakehouse.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio-buckets
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio-buckets
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+        - name: mc
+          image: {{ include "lakehouse.image" .Values.mc.image }}
+          args:
+            - --config-dir
+            - /tmp/.mc
+            - mb
+            - --ignore-existing
+            {{- range .Values.minio.buckets }}
+            - lake/{{ . }}
+            {{- end }}
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.credentialsSecret }}, key: root-user }
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.credentialsSecret }}, key: root-password }
+            - name: MC_HOST_lake
+              value: "http://$(MINIO_ROOT_USER):$(MINIO_ROOT_PASSWORD)@minio:9000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}

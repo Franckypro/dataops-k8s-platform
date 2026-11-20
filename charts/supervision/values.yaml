@@ -1,0 +1,11 @@
+# Seuils des alertes
+alertes:
+  # Fenêtre pendant laquelle un DAG ou une tâche en échec reste signalé
+  fenetreEchecAirflow: 15m
+  # Fenêtre pendant laquelle une requête lente reste signalée (le seuil « lent » est réglé dans charts/trino-usage)
+  fenetreRequeteLente: 15m
+  # Part de requêtes Trino en échec au-delà de laquelle on alerte
+  tauxEchecTrino: 0.2
+
+# Namespaces de la plateforme (tableaux de bord et coûts)
+namespaces: [lakehouse, trino, airflow, monitoring, opencost]

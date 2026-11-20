@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dataops", "app", "validate_data_products"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"

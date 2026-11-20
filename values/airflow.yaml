@@ -1,0 +1,131 @@
+# Airflow 3.2.2 (chart officiel apache-airflow/airflow 1.22.0), réglé pour un poste de travail :
+# LocalExecutor (les tâches tournent dans le pod scheduler), DAG livrés dans l'image.
+executor: LocalExecutor
+
+images:
+  airflow:
+    repository: dataops/airflow # image construite par scripts/up.sh (images/airflow/Dockerfile)
+    tag: "0.1.0" # remplacée par scripts/up.sh par l'empreinte des DAG, des contrats et du Dockerfile
+    pullPolicy: IfNotPresent
+
+# Base de métadonnées : PostgreSQL officiel (charts/postgres) plutôt que la base Bitnami du chart.
+postgresql:
+  enabled: false
+data:
+  metadataSecretName: airflow-metadata # secret créé par scripts/up.sh
+
+# Inutiles avec LocalExecutor et sans opérateur différable
+redis: { enabled: false }
+pgbouncer: { enabled: false }
+triggerer: { enabled: false }
+
+# Avec « helm --wait », les jobs de migration et de création d'utilisateur ne doivent pas être des hooks Helm
+migrateDatabaseJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+  defaultUser:
+    username: admin
+    # mot de passe passé par scripts/up.sh (--set createUserJob.defaultUser.password=...)
+
+config:
+  core:
+    load_examples: "False"
+    parallelism: 4
+    max_active_tasks_per_dag: 4
+    dags_are_paused_at_creation: "False"
+  api:
+    workers: 1
+    base_url: http://localhost:30080
+  dag_processor:
+    refresh_interval: 60
+    parsing_processes: 1
+
+# Sondes plus tolérantes que celles du chart : sur un poste chargé, une commande « airflow jobs check »
+# ou une réponse de l'API peut dépasser 5 à 20 secondes sans que le composant soit en panne.
+apiServer:
+  service:
+    type: NodePort
+    ports:
+      - name: api-server
+        port: "{{ .Values.ports.apiServer }}"
+        nodePort: 30080
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 900Mi }
+  startupProbe:
+    timeoutSeconds: 30
+    failureThreshold: 30
+    periodSeconds: 10
+  livenessProbe:
+    timeoutSeconds: 30
+    failureThreshold: 6
+    periodSeconds: 30
+  readinessProbe:
+    timeoutSeconds: 15
+    failureThreshold: 6
+    periodSeconds: 15
+
+# Avec LocalExecutor, les tâches tournent dans le conteneur du scheduler : sa limite mémoire les inclut.
+scheduler:
+  resources:
+    requests: { cpu: 150m, memory: 640Mi }
+    limits: { memory: 1536Mi }
+  startupProbe:
+    timeoutSeconds: 60
+    failureThreshold: 20
+    periodSeconds: 15
+  livenessProbe:
+    timeoutSeconds: 60
+    failureThreshold: 6
+    periodSeconds: 60
+  logGroomerSidecar:
+    resources:
+      requests: { cpu: 5m, memory: 32Mi }
+      limits: { memory: 96Mi }
+
+dagProcessor:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { memory: 640Mi }
+  livenessProbe:
+    timeoutSeconds: 60
+    failureThreshold: 6
+    periodSeconds: 60
+  logGroomerSidecar:
+    resources:
+      requests: { cpu: 5m, memory: 32Mi }
+      limits: { memory: 96Mi }
+
+# Métriques StatsD converties en métriques Prometheus (supervisées par charts/supervision)
+statsd:
+  enabled: true
+  resources:
+    requests: { cpu: 5m, memory: 24Mi }
+    limits: { memory: 96Mi }
+  # Ajoute le statut final de chaque tâche, par DAG et par tâche
+  extraMappings:
+    - match: "airflow.ti.finish.*.*.*"
+      name: "airflow_ti_finish"
+      labels:
+        dag_id: "$1"
+        task_id: "$2"
+        state: "$3"
+
+# Connexions et paramètres lus par les DAG
+extraEnv: |
+  - name: AIRFLOW_CONN_TRINO_DEFAULT
+    value: "trino://airflow@trino.trino.svc.cluster.local:8080/iceberg"
+  - name: ICEBERG_REST_URI
+    value: "http://iceberg-rest.lakehouse.svc.cluster.local:8181"
+  - name: S3_ENDPOINT
+    value: "http://minio.lakehouse.svc.cluster.local:9000"
+  - name: PROMETHEUS_URL
+    value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  - name: OPENCOST_URL
+    value: "http://opencost.opencost.svc.cluster.local:9003"
+extraEnvFrom: |
+  - secretRef:
+      name: airflow-s3

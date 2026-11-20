@@ -1,0 +1,19 @@
+# Secrets générés au premier lancement (jamais versionnés)
+.secrets/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Helm
+charts/*/charts/
+charts/*/Chart.lock
+*.tgz
+
+# Divers
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,45 @@
+{
+  "_commentaire": "Événement réel envoyé par Trino 483 (event listener HTTP), réduit aux champs utiles aux tests.",
+  "metadata": {
+    "queryId": "20261120_095352_00006_59rr9",
+    "query": "SELECT n.name, count(*) AS clients FROM iceberg.demo.nations n JOIN tpch.tiny.customer c ON c.nationkey = n.nationkey GROUP BY n.name ORDER BY clients DESC LIMIT 3",
+    "queryState": "FINISHED"
+  },
+  "statistics": {
+    "cpuTime": 0.098,
+    "wallTime": 0.292526339,
+    "queuedTime": 0.000446835,
+    "physicalInputBytes": 1827,
+    "processedInputBytes": 14554,
+    "outputRows": 3,
+    "writtenBytes": 0,
+    "peakUserMemoryBytes": 1049312
+  },
+  "context": {
+    "user": "trino",
+    "principal": "trino",
+    "source": "trino-cli",
+    "catalog": null,
+    "schema": null,
+    "serverVersion": "483",
+    "environment": "dataops_local",
+    "queryType": "SELECT"
+  },
+  "ioMetadata": {
+    "inputs": [
+      {
+        "catalogName": "tpch",
+        "schema": "tiny",
+        "table": "customer"
+      },
+      {
+        "catalogName": "iceberg",
+        "schema": "demo",
+        "table": "nations"
+      }
+    ],
+    "output": null
+  },
+  "createTime": "2026-11-20T09:53:52.378995170Z",
+  "endTime": "2026-11-20T09:53:52.671521509Z"
+}

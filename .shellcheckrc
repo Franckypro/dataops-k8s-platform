@@ -1,0 +1,3 @@
+# Les scripts chargent scripts/lib.sh : ShellCheck le suit depuis le dossier du script.
+source-path=SCRIPTDIR
+external-sources=true

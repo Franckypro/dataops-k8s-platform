@@ -1,0 +1,85 @@
+# Alertes de la plateforme. Elles apparaissent dans Prometheus (onglet Alerts), Alertmanager et Grafana.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dataops-alertes
+  labels:
+    app.kubernetes.io/part-of: dataops-platform
+spec:
+  groups:
+    - name: dataops-airflow
+      rules:
+        - alert: AirflowDagEnEchec
+          # « unless ... offset » détecte aussi le tout premier échec d'un DAG, que increase() ne voit pas
+          expr: |
+            (sum by (dag_id) (increase(airflow_dagrun_failed_count[{{ .Values.alertes.fenetreEchecAirflow }}])) > 0)
+            or
+            (sum by (dag_id) (airflow_dagrun_failed_count unless airflow_dagrun_failed_count offset {{ .Values.alertes.fenetreEchecAirflow }}))
+          labels:
+            severity: warning
+            equipe: plateforme
+          annotations:
+            summary: "Le DAG {{ "{{" }} $labels.dag_id {{ "}}" }} a échoué"
+            description: "Au moins une exécution du DAG {{ "{{" }} $labels.dag_id {{ "}}" }} s'est terminée en échec dans les {{ .Values.alertes.fenetreEchecAirflow }} précédentes. Voir l'interface Airflow (http://localhost:30080)."
+        - alert: AirflowTacheEnEchec
+          expr: |
+            (sum by (dag_id, task_id) (increase(airflow_ti_finish{state="failed"}[{{ .Values.alertes.fenetreEchecAirflow }}])) > 0)
+            or
+            (sum by (dag_id, task_id) (airflow_ti_finish{state="failed"} unless airflow_ti_finish{state="failed"} offset {{ .Values.alertes.fenetreEchecAirflow }}))
+          labels:
+            severity: warning
+            equipe: plateforme
+          annotations:
+            summary: "Tâche {{ "{{" }} $labels.task_id {{ "}}" }} en échec ({{ "{{" }} $labels.dag_id {{ "}}" }})"
+            description: "La tâche {{ "{{" }} $labels.task_id {{ "}}" }} du DAG {{ "{{" }} $labels.dag_id {{ "}}" }} a échoué."
+        - alert: AirflowSchedulerArrete
+          expr: sum(rate(airflow_scheduler_heartbeat[5m])) == 0 or absent(airflow_scheduler_heartbeat)
+          for: 5m
+          labels:
+            severity: critical
+            equipe: plateforme
+          annotations:
+            summary: "Le scheduler Airflow ne donne plus signe de vie"
+            description: "Aucun battement de cœur du scheduler depuis 5 minutes : plus aucun DAG n'est planifié."
+
+    - name: dataops-trino
+      rules:
+        - alert: TrinoIndisponible
+          expr: max(trino_up) == 0 or absent(trino_up)
+          for: 2m
+          labels:
+            severity: critical
+            equipe: plateforme
+          annotations:
+            summary: "Trino ne répond plus"
+            description: "Le coordinateur Trino ne répond pas sur /v1/info depuis 2 minutes (arrêt, redémarrage ou montée de version en cours)."
+        - alert: TrinoRequetesLentes
+          expr: time() - max by (user, catalog) (trino_last_slow_query_timestamp_seconds) < {{ include "supervision.secondes" .Values.alertes.fenetreRequeteLente }}
+          labels:
+            severity: warning
+            equipe: plateforme
+          annotations:
+            summary: "Requête lente sur Trino ({{ "{{" }} $labels.user {{ "}}" }}, {{ "{{" }} $labels.catalog {{ "}}" }})"
+            description: "Au moins une requête de {{ "{{" }} $labels.user {{ "}}" }} sur le catalogue {{ "{{" }} $labels.catalog {{ "}}" }} a dépassé le seuil de durée dans les {{ .Values.alertes.fenetreRequeteLente }} précédentes. Le détail (identifiant, durée) est dans les journaux du collecteur trino-usage-exporter."
+        - alert: TrinoTauxEchecEleve
+          expr: |
+            sum(increase(trino_queries_total{state="FAILED"}[15m])) / sum(increase(trino_queries_total[15m])) > {{ .Values.alertes.tauxEchecTrino }}
+            and sum(increase(trino_queries_total[15m])) > 5
+          labels:
+            severity: warning
+            equipe: plateforme
+          annotations:
+            summary: "Beaucoup de requêtes Trino en échec"
+            description: "Plus de {{ mulf .Values.alertes.tauxEchecTrino 100 }} % des requêtes Trino ont échoué sur 15 minutes."
+
+    - name: dataops-stockage
+      rules:
+        - alert: MinioIndisponible
+          expr: max(up{namespace="lakehouse", service="minio"}) == 0 or absent(up{namespace="lakehouse", service="minio"})
+          for: 2m
+          labels:
+            severity: critical
+            equipe: plateforme
+          annotations:
+            summary: "MinIO ne répond plus"
+            description: "Le stockage objet ne répond plus : plus aucune table Iceberg n'est lisible."

@@ -1,0 +1,95 @@
+# Catalogue REST Apache Iceberg : Trino et les DAG Airflow y enregistrent et y retrouvent les tables.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: iceberg-catalog
+  labels:
+    {{- include "lakehouse.labels" . | nindent 4 }}
+    app.kubernetes.io/name: iceberg-rest
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.icebergRest.storageSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iceberg-rest
+  labels:
+    {{- include "lakehouse.labels" . | nindent 4 }}
+    app.kubernetes.io/name: iceberg-rest
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: iceberg-rest
+  template:
+    metadata:
+      labels:
+        {{- include "lakehouse.labels" . | nindent 8 }}
+        app.kubernetes.io/name: iceberg-rest
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: iceberg-rest
+          image: {{ include "lakehouse.image" .Values.icebergRest.image }}
+          env:
+            # Chaque variable CATALOG_* devient une propriété du catalogue (ex. CATALOG_S3_ENDPOINT -> s3.endpoint).
+            - { name: CATALOG_WAREHOUSE, value: {{ .Values.icebergRest.warehouse | quote }} }
+            - { name: CATALOG_URI, value: "jdbc:sqlite:/data/iceberg_catalog.db" }
+            - { name: CATALOG_IO__IMPL, value: org.apache.iceberg.aws.s3.S3FileIO }
+            - { name: CATALOG_S3_ENDPOINT, value: {{ include "lakehouse.minioEndpoint" . | quote }} }
+            - { name: CATALOG_S3_PATH__STYLE__ACCESS, value: "true" }
+            - { name: AWS_REGION, value: us-east-1 }
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.credentialsSecret }}, key: root-user }
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.credentialsSecret }}, key: root-password }
+            - { name: JAVA_TOOL_OPTIONS, value: {{ .Values.icebergRest.javaOpts | quote }} }
+          ports:
+            - { name: http, containerPort: 8181 }
+          # Délais tolérants : sur un poste chargé, une réponse peut prendre plusieurs secondes
+          readinessProbe:
+            httpGet: { path: /v1/config, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /v1/config, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.icebergRest.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: catalog, mountPath: /data }
+      volumes:
+        - name: catalog
+          persistentVolumeClaim:
+            claimName: iceberg-catalog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iceberg-rest
+  labels:
+    {{- include "lakehouse.labels" . | nindent 4 }}
+    app.kubernetes.io/name: iceberg-rest
+spec:
+  selector:
+    app.kubernetes.io/name: iceberg-rest
+  ports:
+    - { name: http, port: 8181, targetPort: http }

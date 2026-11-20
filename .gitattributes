@@ -1,0 +1,5 @@
+# Les scripts shell doivent garder des fins de ligne LF, même sous Windows.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary

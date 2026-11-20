@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trino-usage-exporter
+  labels:
+    app.kubernetes.io/name: trino-usage-exporter
+    app.kubernetes.io/part-of: dataops-platform
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: trino-usage-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: trino-usage-exporter
+        app.kubernetes.io/part-of: dataops-platform
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+        - name: exporter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - { name: TRINO_URL, value: {{ .Values.trinoUrl | quote }} }
+            - { name: SLOW_QUERY_SECONDS, value: {{ .Values.slowQuerySeconds | quote }} }
+            - { name: LOG_EVENTS, value: {{ .Values.logEvents | quote }} }
+            - { name: PYTHONUNBUFFERED, value: "1" }
+          ports:
+            - { name: http, containerPort: 8000 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino-usage-exporter
+  labels:
+    app.kubernetes.io/name: trino-usage-exporter
+    app.kubernetes.io/part-of: dataops-platform
+spec:
+  selector:
+    app.kubernetes.io/name: trino-usage-exporter
+  ports:
+    - { name: http, port: 8000, targetPort: http }
