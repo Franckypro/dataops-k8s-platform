@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Franckypro/dataops-k8s-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Franckypro/dataops-k8s-platform/actions/workflows/ci.yml)
 
-**Projet personnel, novembre 2026.** Une plateforme de données complète qui tourne sur un cluster Kubernetes local,
+Une plateforme de données complète qui tourne sur un cluster Kubernetes local,
 lancée en une commande et testée de bout en bout par la CI à chaque commit. Elle couvre les missions d'un
 *Platform Engineer DataOps* : déploiement avec Helm, lakehouse Trino et Apache Iceberg, orchestration Airflow,
 CI/CD, montée de version et retour arrière, supervision et alertes, suivi des usages et des coûts, data products.
