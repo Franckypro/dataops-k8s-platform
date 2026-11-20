@@ -14,7 +14,8 @@ if [ -n "$revision" ]; then
 else
   hm rollback trino -n trino --wait --timeout 10m
 fi
-version_apres=$(trino_sql "SELECT version()" | tail -1)
+version_apres=$(version_trino_helm)
+attendre_version_trino "$version_apres" || die "Trino ne répond pas en version $version_apres après le retour arrière"
 nb=$(trino_sql "SELECT count(*) FROM iceberg.reseau_fixe.ftth_communes" | tail -1)
 ok "Trino est revenu en version $version_apres ; les tables Iceberg sont intactes ($nb lignes dans ftth_communes)"
 hm -n trino history trino --max 5

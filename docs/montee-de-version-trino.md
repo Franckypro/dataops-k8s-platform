@@ -41,12 +41,17 @@ Le script :
 
 1. note la version de Trino et la révision Helm en service ;
 2. lance `helm upgrade trino trino/trino --version 1.45.0 -f values/trino.yaml --wait` ;
-3. vérifie que Trino répond dans la nouvelle version, que le catalogue `iceberg` est présent, que les tables
-   `reseau_fixe.ftth_communes` et `reseau_fixe.ftth_departements` se lisent, et qu'une écriture Iceberg fonctionne
-   (`iceberg.verification.ecriture`) ;
+3. attend que Trino réponde dans la version du chart (colonne APP VERSION de `helm history`), puis vérifie que le
+   catalogue `iceberg` est présent, que les tables `reseau_fixe.ftth_communes` et `reseau_fixe.ftth_departements`
+   se lisent, et qu'une écriture Iceberg fonctionne (`iceberg.verification.ecriture`) ;
 4. si une vérification échoue, revient **automatiquement** à la révision précédente avec `helm rollback`.
 
-Pendant la montée de version, le coordinateur redémarre : Trino est indisponible environ une à deux minutes.
+Le coordinateur est déployé avec la stratégie `Recreate` (`values/trino.yaml`) : l'ancien pod s'arrête avant que le
+nouveau démarre. Trino est donc indisponible environ une à deux minutes, mais il n'y a jamais deux JVM Trino en
+mémoire, et aucune requête n'est envoyée à un pod en cours d'arrêt. Une première version du projet utilisait la mise
+à jour progressive par défaut : la CI a alors vu une connexion coupée juste après la montée de version, la requête
+étant partie vers l'ancien pod. Le client `scripts/trino_query.py` réessaie aussi les erreurs passagères.
+
 L'alerte `TrinoIndisponible` (2 minutes d'indisponibilité) peut se déclencher, et le tableau Grafana
 « Plateforme DataOps » montre le changement de version.
 

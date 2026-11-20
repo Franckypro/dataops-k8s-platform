@@ -106,6 +106,24 @@ trino_sql() {
   "$PYTHON" "$ROOT_DIR_NATIF/scripts/trino_query.py" --user "${2:-plateforme}" "$1"
 }
 
+# Version de Trino de la dernière révision Helm (colonne APP VERSION de « helm history »)
+version_trino_helm() {
+  hm -n trino history trino --max 1 -o json | sed -n 's/.*"app_version":"\([^"]*\)".*/\1/p'
+}
+
+# Attend que Trino réponde dans la version attendue : juste après une montée de version ou un retour arrière,
+# le NodePort peut encore envoyer quelques requêtes vers l'ancien pod en cours d'arrêt.
+attendre_version_trino() { # attendre_version_trino <version> [délai en secondes]
+  local attendue="$1" fin=$((SECONDS + ${2:-180})) actuelle=""
+  while [ "$SECONDS" -lt "$fin" ]; do
+    actuelle=$(trino_sql "SELECT version()" 2>/dev/null | tail -1 || true)
+    [ "$actuelle" = "$attendue" ] && return 0
+    sleep 5
+  done
+  warn "Trino répond en version « ${actuelle:-aucune} », attendu « $attendue »"
+  return 1
+}
+
 # API REST d'Airflow 3, exposée sur le NodePort 30080. On évite la CLI « airflow » dans le pod du
 # scheduler : elle consomme la mémoire réservée au scheduler et à ses tâches.
 AIRFLOW_URL="${AIRFLOW_URL:-http://localhost:30080}"

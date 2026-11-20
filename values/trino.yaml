@@ -10,6 +10,11 @@ server:
       maxMemory: "400MB"
 
 coordinator:
+  # Un seul coordinateur : à chaque montée de version, l'ancien pod s'arrête avant que le nouveau démarre.
+  # Pas deux JVM Trino en mémoire en même temps, et aucune requête envoyée à un pod en cours d'arrêt.
+  deployment:
+    strategy:
+      type: Recreate
   jvm:
     maxHeapSize: "1G"
   config:

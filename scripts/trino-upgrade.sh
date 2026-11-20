@@ -14,9 +14,11 @@ version_avant=$(trino_sql "SELECT version()" | tail -1)
 step "Montée de version de Trino : $version_avant (révision Helm $revision_avant) -> chart $cible"
 helm repo update trino >/dev/null
 # Notes de version à relire avant toute montée de version : https://trino.io/docs/current/release.html
-hm upgrade trino trino/trino --version "$cible" -n trino -f values/trino.yaml --wait --timeout 10m
-version_apres=$(trino_sql "SELECT version()" | tail -1)
-ok "Trino répond en version $version_apres"
+# --rollback-on-failure : si Helm ne parvient pas à appliquer la nouvelle version, il revient seul à la précédente
+if ! hm upgrade trino trino/trino --version "$cible" -n trino -f values/trino.yaml --wait --timeout 10m --rollback-on-failure; then
+  die "montée de version en échec : Helm est revenu à la dernière révision réussie ($(version_trino_helm))"
+fi
+version_attendue=$(version_trino_helm)
 
 step "Vérifications de non-régression"
 verifier_trino() {
@@ -27,7 +29,7 @@ verifier_trino() {
   trino_sql "CREATE OR REPLACE TABLE iceberg.verification.ecriture AS SELECT current_timestamp AS horodatage" >/dev/null &&
   trino_sql "SELECT count(*) FROM iceberg.verification.ecriture" | tail -1 | grep -qx 1
 }
-if verifier_trino; then
+if attendre_version_trino "$version_attendue" && ok "Trino répond en version $version_attendue" && verifier_trino; then
   ok "lecture des tables Iceberg, écriture et catalogues : OK"
 else
   warn "vérification en échec : retour à la révision $revision_avant"
