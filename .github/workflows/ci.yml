@@ -22,8 +22,8 @@ jobs:
     name: Lint, tests et contrats
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Outils
@@ -43,8 +43,8 @@ jobs:
     name: Charts Helm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
         with:
           version: ${{ env.HELM_VERSION }}
       - name: helm lint (charts du dépôt)
@@ -68,7 +68,7 @@ jobs:
     name: DAG Airflow (dans l'image)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Construction de l'image Airflow
         run: docker build -t dataops/airflow:ci -f images/airflow/Dockerfile .
       - name: Les DAG se chargent sans erreur dans l'image qui sera déployée
@@ -82,12 +82,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Espace disque (images Trino et Airflow)
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: ${{ env.HELM_VERSION }}
       - name: kind

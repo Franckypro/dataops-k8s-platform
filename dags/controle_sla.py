@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 def controle_sla_data_products():
     @task
     def verifier_fraicheur() -> list[dict]:
-        from airflow.exceptions import AirflowFailException
+        from airflow.sdk.exceptions import AirflowFailException
 
         from dataops.contrats import identifiant_iceberg, tous_les_contrats
         from dataops.lakehouse import requete

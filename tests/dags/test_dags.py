@@ -29,7 +29,7 @@ def test_les_dag_attendus_sont_presents(dagbag):
 
 @pytest.mark.parametrize("dag_id", ["ingestion_ftth", "controle_sla_data_products"])
 def test_conventions(dagbag, dag_id):
-    dag = dagbag.get_dag(dag_id)
+    dag = dagbag.dags[dag_id]
     assert dag.tags, "chaque DAG porte des tags"
     assert dag.catchup is False, "pas de rattrapage automatique des exécutions passées"
     assert dag.max_active_runs == 1, "une seule exécution à la fois"
@@ -38,7 +38,7 @@ def test_conventions(dagbag, dag_id):
 
 
 def test_chaine_de_l_ingestion(dagbag):
-    dag = dagbag.get_dag("ingestion_ftth")
+    dag = dagbag.dags["ingestion_ftth"]
     assert dag.get_task("charger_communes").upstream_task_ids == {"telecharger_source"}
     assert dag.get_task("publier_departements").upstream_task_ids == {"charger_communes", "controler_communes"}
     assert dag.get_task("controler_departements").upstream_task_ids == {"charger_communes", "publier_departements"}

@@ -8,7 +8,7 @@ from dataops.contrats import contrat, controles_sql
 from dataops.lakehouse import requete, table_du_contrat
 
 try:  # échec définitif, sans nouvelle tentative : relancer ne corrigera pas les données
-    from airflow.exceptions import AirflowFailException as _EchecDefinitif
+    from airflow.sdk.exceptions import AirflowFailException as _EchecDefinitif
 except ImportError:  # tests unitaires sans Airflow
     _EchecDefinitif = Exception
 

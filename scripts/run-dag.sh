@@ -35,6 +35,8 @@ if [ "$attendre_existante" = 1 ]; then
     [ -n "$run_id" ] && break
     sleep 5
   done
+  # Une exécution déjà en échec ne sert à rien : on en lance une nouvelle
+  if [ -n "$run_id" ] && [ "$(etat "$run_id" || true)" = "failed" ]; then run_id=""; fi
 fi
 if [ -n "$run_id" ]; then
   printf "  attente de l'exécution %s du DAG %s" "$run_id" "$dag_id"
