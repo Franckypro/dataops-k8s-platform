@@ -26,8 +26,9 @@ opencost:
     serviceMonitor:
       enabled: true
 
-  # Cluster local, sans facture de fournisseur cloud : on fixe des tarifs de référence.
-  # Ce sont des tarifs indicatifs pour la démonstration, à remplacer par le coût réel de l'infrastructure.
+  # Cluster local, sans facture de fournisseur cloud : on fixe des tarifs de référence, en dollars
+  # (devise par défaut d'OpenCost). Ce sont des tarifs indicatifs pour la démonstration,
+  # à remplacer par le coût réel de l'infrastructure.
   customPricing:
     enabled: true
     provider: custom

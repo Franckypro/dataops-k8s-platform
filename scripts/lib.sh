@@ -88,10 +88,22 @@ apply_secret() {
   kc -n "$ns" create secret generic "$name" "${args[@]}" --dry-run=client -o yaml | kc apply -f - >/dev/null
 }
 
-# Exécute une requête SQL avec le client trino du pod coordinateur. Utilisateur par défaut : « plateforme ».
+# Chemin du dépôt lisible par un programme Windows (Python) depuis Git Bash
+if command -v cygpath >/dev/null 2>&1; then ROOT_DIR_NATIF="$(cygpath -m "$ROOT_DIR")"; else ROOT_DIR_NATIF="$ROOT_DIR"; fi
+
+# Python 3 disponible (sous Windows, « python3 » peut n'être qu'un raccourci vers le Microsoft Store)
+PYTHON=""
+for candidat in python3 python; do
+  if "$candidat" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+    PYTHON="$candidat"; break
+  fi
+done
+
+# Exécute une requête SQL par l'API HTTP de Trino (NodePort 30088). Utilisateur par défaut : « plateforme ».
 #   trino_sql "SELECT 1"            trino_sql "SELECT 1" analyste
 trino_sql() {
-  kc -n trino exec deploy/trino-coordinator -- trino --user "${2:-plateforme}" --output-format=TSV --execute "$1"
+  [ -n "$PYTHON" ] || die "Python 3 est nécessaire pour interroger Trino"
+  "$PYTHON" "$ROOT_DIR_NATIF/scripts/trino_query.py" --user "${2:-plateforme}" "$1"
 }
 
 # API REST d'Airflow 3, exposée sur le NodePort 30080. On évite la CLI « airflow » dans le pod du

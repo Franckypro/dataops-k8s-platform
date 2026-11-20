@@ -70,7 +70,8 @@ Ils sont versionnés en JSON dans `charts/supervision/dashboards/` et chargés a
 
 OpenCost croise les ressources réservées et consommées par chaque conteneur avec un prix par vCPU, par Gio de mémoire
 et par Gio de stockage. Un cluster local n'a pas de facture : les prix sont fixés dans `values/opencost.yaml`
-(0,04 par vCPU et par heure, 0,005 par Gio et par heure). **Ce sont des tarifs indicatifs**, qui servent à montrer la
+(0,04 $ par vCPU et par heure, 0,005 $ par Gio et par heure ; le dollar est la devise par défaut d'OpenCost).
+**Ce sont des tarifs indicatifs**, qui servent à montrer la
 ventilation par namespace ; on les remplacerait par le coût réel de l'infrastructure (ou par la facture du
 fournisseur cloud, qu'OpenCost sait lire).
 

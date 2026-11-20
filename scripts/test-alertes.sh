@@ -35,7 +35,7 @@ ok "alerte reçue par Alertmanager"
 step "Alerte « requête lente »"
 # Le seuil est abaissé à 2 s le temps du test, pour ne pas dépendre de la puissance de la machine.
 hm upgrade trino-usage charts/trino-usage -n trino --reuse-values --set slowQuerySeconds=2 --wait --timeout 3m >/dev/null
-trino_sql "SELECT count_if(regexp_like(l.comment, '(fur|ly).*(ironic|even)')) FROM tpch.sf1.lineitem l CROSS JOIN UNNEST(sequence(1, 3))" analyste >/dev/null
+trino_sql "SELECT count_if(regexp_like(comment, '(fur|ly).*(ironic|even)')) FROM tpch.sf1.lineitem" analyste >/dev/null
 attendre_alerte TrinoRequetesLentes ',user="analyste",catalog="tpch"' 180 || die "TrinoRequetesLentes ne s'est pas déclenchée"
 echo
 ok "TrinoRequetesLentes active pour l'utilisateur analyste sur le catalogue tpch"

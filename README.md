@@ -63,6 +63,40 @@ flowchart LR
   OC --> PROM
 ```
 
+## Captures d'écran
+
+Captures prises sur la plateforme lancée en local le 20 novembre 2026.
+
+**Airflow** : le DAG `ingestion_ftth`, ses exécutions réussies et l'échec provoqué pour tester l'alerte.
+
+![DAG ingestion_ftth dans Airflow](docs/images/airflow-ingestion.png)
+
+**Grafana, vue d'ensemble** : Trino en service et sa version, exécutions Airflow, alertes en cours, ressources par namespace.
+
+![Tableau Grafana « Plateforme DataOps »](docs/images/grafana-plateforme.png)
+
+**Grafana, usages Trino** : requêtes, temps CPU et requêtes lentes, par utilisateur et par catalogue.
+
+![Tableau Grafana « Usages Trino »](docs/images/grafana-usages-trino.png)
+
+**Grafana, FinOps** : coût horaire, projection mensuelle et coût par namespace (tarifs indicatifs).
+
+![Tableau Grafana « FinOps »](docs/images/grafana-finops.png)
+
+**Alertes** : un DAG en échec déclenche `AirflowDagEnEchec` et `AirflowTacheEnEchec` dans Prometheus, puis dans Alertmanager.
+
+![Alertes Airflow dans Prometheus](docs/images/prometheus-alertes.png)
+
+**OpenCost** : ventilation du coût du cluster par namespace.
+
+![Coût par namespace dans OpenCost](docs/images/opencost.png)
+
+**Trino** : la requête volontairement lente de l'utilisateur `analyste` lancée par le test d'alerte.
+
+![Interface de Trino](docs/images/trino.png)
+
+## Versions
+
 | Brique | Version | Déployée avec |
 |---|---|---|
 | Kubernetes | 1.37 (kind 0.33) | `kind/cluster.yaml` |
@@ -134,7 +168,8 @@ Relancer le DAG remplace la partition du trimestre : aucun doublon.
 ./scripts/run-dag.sh ingestion_ftth
 ```
 
-Les tables se lisent ensuite avec Trino (`kubectl -n trino exec -it deploy/trino-coordinator -- trino`) :
+Les tables se lisent ensuite avec Trino, par exemple avec le petit client du dépôt
+(`python scripts/trino_query.py --user analyste "SELECT ..."`) :
 
 ```sql
 -- Départements où la fibre est la moins déployée
@@ -143,9 +178,12 @@ FROM iceberg.reseau_fixe.ftth_departements
 ORDER BY taux_raccordables_ftth
 LIMIT 5;
 
--- Historique des versions de la table (chaque chargement est un snapshot Iceberg)
-SELECT committed_at, operation, summary['added-records'] AS lignes
-FROM iceberg.reseau_fixe."ftth_communes$snapshots";
+-- Historique de la table : chaque rechargement remplace la partition (un snapshot « delete » puis « append »)
+SELECT committed_at, operation,
+       element_at(summary, 'added-records') AS lignes_ajoutees,
+       element_at(summary, 'deleted-records') AS lignes_supprimees
+FROM iceberg.reseau_fixe."ftth_communes$snapshots"
+ORDER BY committed_at;
 ```
 
 ### 2. Les data products et leurs contrats
@@ -177,8 +215,8 @@ Chaque requête Trino est comptée par utilisateur et par catalogue (requêtes, 
 Grafana « Usages Trino ». OpenCost ventile le coût du cluster par namespace, avec des tarifs indicatifs.
 
 ```bash
-kubectl -n trino exec deploy/trino-coordinator -- trino --user analyste \
-  --execute "SELECT count(*) FROM tpch.sf1.orders"
+python scripts/trino_query.py --user analyste "SELECT count(*) FROM tpch.sf1.orders"
+python scripts/trino_query.py --user data-scientist "SELECT count(*) FROM iceberg.reseau_fixe.ftth_communes"
 ```
 
 ### 5. La montée de version de Trino
@@ -200,6 +238,9 @@ Procédure complète et notes de version : [docs/montee-de-version-trino.md](doc
 3. **DAG Airflow** : l'image Airflow est construite et les DAG y sont chargés et testés.
 4. **Déploiement complet sur kind** : `./scripts/up.sh` (cluster, déploiement, premier chargement, tests de fumée),
    puis déclenchement réel des alertes, montée de version de Trino en 484 et retour arrière en 483.
+
+Durées mesurées sur une machine GitHub Actions vierge (exécution du 20 novembre 2026) : lancement complet en
+6 min 55 s, test des alertes en 2 min 08 s, montée de version de Trino en 43 s, retour arrière en 23 s.
 
 ## Choix techniques et limites
 
@@ -225,6 +266,8 @@ Procédure complète et notes de version : [docs/montee-de-version-trino.md](doc
 | Image MinIO introuvable | MinIO a arrêté ses images publiques | Image Chainguard épinglée par digest |
 | Base PostgreSQL du chart Airflow | Images Bitnami gratuites arrêtées en 2025 | Chart `postgres` avec l'image officielle |
 | Requêtes Trino `USER_CANCELED` vues par le suivi d'usage | `TrinoHook.run()` ne lit pas le résultat : le client annule la requête en fermant le curseur, parfois après le commit | Toujours lire le résultat (`dataops.lakehouse.requete`) |
+| Requêtes d'Airflow comptées sur un catalogue « hive » inexistant | Le hook Trino lit le catalogue dans les options de la connexion, pas dans le chemin de l'URI | Connexion `trino://airflow@...:8080/?catalog=iceberg` |
+| Client `trino` tué (code 137) pendant une requête lourde | Lancé dans le pod de Trino, il partage la limite mémoire du serveur | Petit client Python de l'API HTTP de Trino (`scripts/trino_query.py`) |
 | Deux exécutions du DAG au premier démarrage | Airflow lance la dernière échéance manquée quand un DAG est activé, même avec `catchup=False` | Le script attend cette exécution au lieu d'en créer une |
 | OpenCost redémarrait en boucle | `clusterName` du chart est le suffixe DNS du cluster, pas un nom libre | Laisser `cluster.local`, l'identifiant va dans `defaultClusterId` |
 | Grafana 13 redémarrait au démarrage | 30 tableaux par défaut et limite de 384 Mio | Tableaux génériques désactivés, 512 Mio : démarrage en moins d'une minute |
@@ -238,7 +281,8 @@ values/          valeurs des charts officiels : trino, airflow, kube-prometheus-
 images/          images construites : airflow (DAG + contrats), trino-usage-exporter
 dags/            DAG Airflow et module partagé dataops/ (contrats, lakehouse, qualité)
 data-products/   contrats YAML des data products et leur schéma JSON
-scripts/         up.sh, down.sh, run-dag.sh, smoke-test.sh, test-alertes.sh, trino-upgrade.sh, trino-rollback.sh
+scripts/         up.sh, down.sh, run-dag.sh, smoke-test.sh, test-alertes.sh, trino-upgrade.sh, trino-rollback.sh,
+                 trino_query.py (client SQL), validate_data_products.py (contrats)
 tests/           tests des contrats et des DAG
 docs/            montée de version, data products, supervision et coûts
 kind/            configuration du cluster

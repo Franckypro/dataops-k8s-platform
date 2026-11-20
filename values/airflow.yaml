@@ -117,15 +117,11 @@ statsd:
 # Connexions et paramètres lus par les DAG
 extraEnv: |
   - name: AIRFLOW_CONN_TRINO_DEFAULT
-    value: "trino://airflow@trino.trino.svc.cluster.local:8080/iceberg"
+    value: "trino://airflow@trino.trino.svc.cluster.local:8080/?catalog=iceberg"
   - name: ICEBERG_REST_URI
     value: "http://iceberg-rest.lakehouse.svc.cluster.local:8181"
   - name: S3_ENDPOINT
     value: "http://minio.lakehouse.svc.cluster.local:9000"
-  - name: PROMETHEUS_URL
-    value: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
-  - name: OPENCOST_URL
-    value: "http://opencost.opencost.svc.cluster.local:9003"
 extraEnvFrom: |
   - secretRef:
       name: airflow-s3

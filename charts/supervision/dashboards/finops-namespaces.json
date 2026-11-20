@@ -12,25 +12,25 @@
     {
       "type": "stat",
       "title": "Coût horaire du cluster",
-      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "refId": "A", "expr": "sum(node_total_hourly_cost)" }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "area" },
-      "fieldConfig": { "defaults": { "decimals": 3, "unit": "currencyEUR" }, "overrides": [] }
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "none", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "decimals": 3, "unit": "currencyUSD" }, "overrides": [] }
     },
     {
       "type": "stat",
       "title": "Projection sur un mois (730 h)",
-      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "refId": "A", "expr": "sum(node_total_hourly_cost) * 730" }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
-      "fieldConfig": { "defaults": { "decimals": 0, "unit": "currencyEUR" }, "overrides": [] }
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "none", "graphMode": "none" },
+      "fieldConfig": { "defaults": { "decimals": 0, "unit": "currencyUSD" }, "overrides": [] }
     },
     {
       "type": "stat",
       "title": "Part du coût allouée aux namespaces de la plateforme",
-      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -38,21 +38,7 @@
           "expr": "(sum(container_cpu_allocation{namespace=~\"lakehouse|trino|airflow|monitoring|opencost\"} * on (node) group_left() avg by (node) (node_cpu_hourly_cost)) + sum(container_memory_allocation_bytes{namespace=~\"lakehouse|trino|airflow|monitoring|opencost\"} / 1073741824 * on (node) group_left() avg by (node) (node_ram_hourly_cost))) / sum(node_total_hourly_cost)"
         }
       ],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 0 }, "overrides": [] }
-    },
-    {
-      "type": "stat",
-      "title": "Efficacité CPU (consommé / alloué)",
-      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\", namespace=~\"lakehouse|trino|airflow|monitoring|opencost\"}[5m])) / sum(container_cpu_allocation{namespace=~\"lakehouse|trino|airflow|monitoring|opencost\"})"
-        }
-      ],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "none", "graphMode": "none" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 0 }, "overrides": [] }
     },
     {
@@ -67,7 +53,7 @@
           "legendFormat": "{{namespace}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 4, "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 35 } }, "overrides": [] }
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4, "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 35 } }, "overrides": [] }
     },
     {
       "type": "bargauge",
@@ -83,7 +69,7 @@
         }
       ],
       "options": { "orientation": "horizontal", "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "fieldConfig": { "defaults": { "unit": "currencyEUR", "decimals": 2 }, "overrides": [] }
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] }
     },
     {
       "type": "table",
