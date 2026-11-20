@@ -3,7 +3,7 @@
 [![CI](https://github.com/Franckypro/dataops-k8s-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Franckypro/dataops-k8s-platform/actions/workflows/ci.yml)
 
 Une plateforme de données complète qui tourne sur un cluster Kubernetes local,
-lancée en une commande et testée de bout en bout par la CI à chaque commit. Elle couvre les missions d'un
+lancée en une commande et testée de bout en bout par la CI à chaque modification du code. Elle couvre les missions d'un
 *Platform Engineer DataOps* : déploiement avec Helm, lakehouse Trino et Apache Iceberg, orchestration Airflow,
 CI/CD, montée de version et retour arrière, supervision et alertes, suivi des usages et des coûts, data products.
 
@@ -230,7 +230,7 @@ Procédure complète et notes de version : [docs/montee-de-version-trino.md](doc
 
 ## La CI
 
-`.github/workflows/ci.yml`, à chaque commit :
+`.github/workflows/ci.yml`, à chaque modification du code :
 
 1. **Lint, tests et contrats** : Ruff, ShellCheck, yamllint, validation des contrats, tests unitaires
    (contrats, contrôles qualité, collecteur d'usage).

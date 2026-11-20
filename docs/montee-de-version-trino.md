@@ -25,7 +25,7 @@ On change **la version du chart**, pas seulement l'image : le chart adapte aussi
    helm show values trino/trino --version 1.45.0 > /tmp/b.yaml
    diff /tmp/a.yaml /tmp/b.yaml   # ici : seule l'image OPA change
    ```
-3. Vérifier que le rendu est valide avec nos valeurs (la CI le fait à chaque commit) :
+3. Vérifier que le rendu est valide avec nos valeurs (la CI le fait à chaque modification du code) :
    ```bash
    helm template trino trino/trino --version 1.45.0 -f values/trino.yaml > /dev/null
    ```
@@ -67,7 +67,7 @@ Iceberg, hors du déploiement de Trino. Le script vérifie après coup la versio
 
 ## 4. Ce qui est testé en continu
 
-Le job « Déploiement complet sur kind » de la CI enchaîne à chaque commit : installation en 483, montée en 484 avec
+Le job « Déploiement complet sur kind » de la CI enchaîne à chaque modification du code : installation en 483, montée en 484 avec
 vérifications, puis retour arrière en 483. Une montée de version qui casse la lecture des tables Iceberg fait échouer
 la CI avant d'arriver sur un environnement partagé.
 
