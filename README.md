@@ -239,8 +239,10 @@ Procédure complète et notes de version : [docs/montee-de-version-trino.md](doc
 4. **Déploiement complet sur kind** : `./scripts/up.sh` (cluster, déploiement, premier chargement, tests de fumée),
    puis déclenchement réel des alertes, montée de version de Trino en 484 et retour arrière en 483.
 
-Durées mesurées sur une machine GitHub Actions vierge (exécution du 20 novembre 2026) : lancement complet en
-6 min 55 s, test des alertes en 2 min 08 s, montée de version de Trino en 43 s, retour arrière en 23 s.
+Durées mesurées sur deux exécutions de la CI, sur une machine GitHub Actions vierge : lancement complet en
+5 min 38 s à 6 min 55 s, test des alertes en 1 min 27 s à 2 min 08 s, montée de version de Trino en 29 à 43 s,
+retour arrière en 14 à 23 s. Une modification qui ne touche que la documentation (`*.md`, `docs/`) ne relance pas
+la CI.
 
 ## Choix techniques et limites
 
