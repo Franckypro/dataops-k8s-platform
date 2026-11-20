@@ -65,7 +65,7 @@ flowchart LR
 
 ## Captures d'écran
 
-Captures prises sur la plateforme lancée en local le 20 novembre 2026.
+Captures prises sur la plateforme lancée en local.
 
 **Airflow** : le DAG `ingestion_ftth`, ses exécutions réussies et l'échec provoqué pour tester l'alerte.
 
